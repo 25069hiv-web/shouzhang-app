@@ -572,15 +572,21 @@ const CONFIG = {
       // 用户自定义类别（可在抽屉里点「类别设置」增删改）
       categories: ["餐饮", "网购", "工资", "兼职", "交通", "居家", "娱乐", "学习", "其他"],
       seed: [
-        { id: 51, title: "工资", type: "income", amount: 8000, category: "工资", date: isoToday() },
-        { id: 52, title: "外卖", type: "expense", amount: 28.5, category: "餐饮", date: isoToday() },
+        // 今日 2026-10-14 支出
+        { id: 51, title: "Pak", type: "expense", amount: 27.00, category: "娱乐", date: "2026-10-14" },
+        { id: 52, title: "阿超", type: "expense", amount: 30.00, category: "其他", date: "2026-10-14" },
+        { id: 53, title: "哑铃", type: "expense", amount: 35.00, category: "网购", date: "2026-10-14" },
+        { id: 54, title: "雪糕", type: "expense", amount: 2.00, category: "餐饮", date: "2026-10-14" },
+        // 昨日 2026-10-13 收入
+        { id: 55, title: "京东", type: "income", amount: 60.00, category: "兼职", date: "2026-10-13" },
       ],
     },
     {
       key: "goal", name: "长期目标", icon: "target", tint: "#e4eef5", color: "var(--module-2)",
       type: "progress", unit: "", desc: "把大目标拆成能推进的小步",
       seed: [
-        { id: 31, title: "存下1万元", current: 2100, target: 10000, unit: "元", note: "每月固定转入" },
+        { id: 31, title: "贷款", current: 0, target: 2800, unit: "元", note: "还清贷款" },
+        { id: 32, title: "存下1万元", current: 2100, target: 10000, unit: "元", note: "每月固定转入" },
       ],
     },
   ],
