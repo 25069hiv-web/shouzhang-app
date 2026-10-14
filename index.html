@@ -515,7 +515,7 @@
    CONFIG — 唯一需要定制的地方。
    ============================================================ */
 const CONFIG = {
-  storageKey: "wb-minimal-v3",         // v3: 侧重记账 + 本地 AI
+  storageKey: "wb-minimal-v4",         // v4: 圆环美化 + 干净种子数据
   owner: "我的手账",
   slogan: "PURE & OFFLINE",
   brand: "我",
@@ -1195,7 +1195,7 @@ function buildDrawer(){
 }
 function toggleSkin(){
   const isB = document.body.classList.toggle('skin-b');
-  localStorage.setItem('wb-skin-v3', isB?'b':'a');
+  localStorage.setItem('wb-skin-v4', isB?'b':'a');
   // 皮肤标签弹个小 toast
   const label = isB ? "已切换到皮肤 B（专业搭配）" : "已切换到皮肤 A（指定顺序）";
   showSkinToast(label);
@@ -1210,7 +1210,7 @@ function showSkinToast(text){
   showSkinToast._t = setTimeout(()=>t.classList.remove("show"), 1500);
 }
 function initSkin(){
-  const saved = localStorage.getItem('wb-skin-v3');
+  const saved = localStorage.getItem('wb-skin-v4');
   if(saved==='b') document.body.classList.add('skin-b');
 }
 function openDrawer(){
