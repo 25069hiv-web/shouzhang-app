@@ -494,6 +494,7 @@
     <button class="dclose" id="drawerClose"></button>
     <div class="brand" id="drawerBrand" title="点击更换头像"><img src="assets/avatar.jpg" alt="头像" id="brandImg"/><span class="brand-cam" id="brandCam"></span></div>
     <input type="file" id="avatarInput" accept="image/*" hidden/>
+    <input type="file" id="importInput" accept=".json,application/json" hidden/>
     <div><h2 id="drawerName">我的手账</h2><p id="drawerSlogan">PURE & OFFLINE</p></div>
   </div>
   <div class="dsep"></div>
@@ -1165,10 +1166,15 @@ function buildDrawer(){
   const items=[`<div class="ditem" data-go="home">${icon("home",20)}首页</div>`]
     .concat(CONFIG.modules.map(m=>`<div class="ditem" data-go="${m.key}">${icon(m.icon,20)}${m.name}</div>`))
     .concat([`<div class="ditem" data-go="ai">${icon("bolt",20)}AI 记账助手</div>`])
-    .concat([`<div class="ditem" id="drawerCatSettings">${icon("gear",20)}类别设置</div>`]);
+    .concat([`<div class="ditem" id="drawerCatSettings">${icon("gear",20)}类别设置</div>`])
+    .concat([`<div class="dsep"></div>`])
+    .concat([`<div class="ditem" id="drawerExport">${icon("cloud-down",20)}导出数据</div>`])
+    .concat([`<div class="ditem" id="drawerImport">${icon("cloud-up",20)}导入数据</div>`]);
   $("#drawerList").innerHTML=items.join("");
   $("#drawerList").querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>go(el.dataset.go));
   const cs = $("#drawerCatSettings"); if(cs) cs.onclick=()=>{ closeDrawer(); openCategorySettings(); };
+  const ex = $("#drawerExport"); if(ex) ex.onclick=()=>{ closeDrawer(); exportData(); };
+  const im = $("#drawerImport"); if(im) im.onclick=()=>{ closeDrawer(); importData(); };
 }
 function toggleSkin(){
   const isB = document.body.classList.toggle('skin-b');
@@ -1218,6 +1224,61 @@ $("#avatarInput").onchange = e => {
   reader.readAsDataURL(f);
   e.target.value = "";
 };
+
+/* ---------- export / import ---------- */
+function exportData(){
+  const payload = {
+    _app: "我的手账",
+    _ver: 3,
+    _exported: new Date().toISOString(),
+    storage: {}
+  };
+  // 保存当前 app 的 localStorage 数据
+  const keys = Object.keys(localStorage);
+  keys.forEach(k => {
+    try { payload.storage[k] = JSON.parse(localStorage.getItem(k)); }
+    catch { payload.storage[k] = localStorage.getItem(k); }
+  });
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const ts = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = `我的手账_备份_${ts}.json`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  toast("已导出 " + ts);
+}
+function importData(){
+  $("#importInput").value = "";
+  $("#importInput").onchange = e => {
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const payload = JSON.parse(reader.result);
+        if(!payload || typeof payload !== "object" || !payload.storage) {
+          toast("文件格式不对"); return;
+        }
+        // 覆盖写入 localStorage
+        Object.keys(payload.storage).forEach(k => {
+          const v = payload.storage[k];
+          localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
+        });
+        // 重新加载 data 并渲染
+        data = store.load();
+        if(data.__avatar) $("#brandImg").src = data.__avatar;
+        initSkin();
+        render();
+        toast("已导入 " + f.name);
+      } catch(err) {
+        toast("导入失败：" + err.message);
+      }
+    };
+    reader.readAsText(f);
+  };
+  $("#importInput").click();
+}
 
 
 /* ---------- utils ---------- */
