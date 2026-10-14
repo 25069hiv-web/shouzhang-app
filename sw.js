@@ -1,5 +1,5 @@
 /* 我的手账 — Service Worker：安装后缓存全部资源，断网也能打开 */
-const CACHE = "shouzhang-pwa-v3";
+const CACHE = "shouzhang-pwa-v4";
 const ASSETS = [
   "./",
   "./index.html",

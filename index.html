@@ -174,11 +174,18 @@
   .ring { display:flex; flex-direction:column; align-items:center; gap: 2px; }
   .ring .dial { position: relative; width: 52px; height: 52px; }
   .ring .dial svg.gauge { transform: rotate(-90deg); width: 52px; height: 52px; }
+  /* 填充环用 overlay 混合模式，与背景图人物融合，产生"拼图填充"质感 */
+  .ring .dial svg.gauge .ring-fill { mix-blend-mode: overlay; }
   .ring .dial .mid { position:absolute; inset:0; display:grid; place-items:center; }
-  /* 三环下数字文字统一用浅蓝色 */
-  .ring .pct { font-size: 15px; font-weight: 800; letter-spacing: -.02em; color: #8ba7d6; }
-  .ring .lbl { font-size: 12px; color: #8ba7d6; font-weight: 800; }
-  .ring .sub { font-size: 11px; color: #8ba7d6; opacity: .95; text-align:center; }
+  /* 三环：所有文字统一为白色 + 文字阴影，保证在背景图上可读 */
+  .ring .pct { font-size: 15px; font-weight: 800; letter-spacing: -.02em; color: #ffffff;
+    text-shadow: 0px 1px 2px rgba(0,0,0,0.5), 0px 0px 6px rgba(0,0,0,0.2); }
+  .ring .lbl { font-size: 12px; color: #ffffff; font-weight: 800;
+    text-shadow: 0px 1px 2px rgba(0,0,0,0.5), 0px 0px 6px rgba(0,0,0,0.2); }
+  .ring .sub { font-size: 11px; color: #ffffff; opacity: .95; text-align:center;
+    text-shadow: 0px 1px 2px rgba(0,0,0,0.5), 0px 0px 6px rgba(0,0,0,0.2); }
+  /* 圆环中心图标 */
+  .ring .dial .mid svg { color: #ffffff; filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.55)); }
 
   /* ---------- summary strip ---------- */
   .mod-summary { display:grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 14px; }
@@ -524,14 +531,15 @@ const CONFIG = {
   ],
 
   // 底部导航对应的 3 个核心模块概览
+  // 圆环填充色：半透明 + 各自马卡龙色调，与背景图融合；底层用 mix-blend-mode: overlay 实现拼图感
   overview: [
-    { key: "todayInc", label: "今日收入", icon: "wallet", color: "#b8820a",
+    { key: "todayInc", label: "今日收入", icon: "wallet", ringFill: "rgba(200, 240, 215, 0.55)",
       calc: d => { const mk=isoToday(); const t=(d.money||[]).filter(x=>x.date===mk&&x.type==="income").reduce((s,x)=>s+ +x.amount,0);
         return { value: t?100:0, sub: t?`¥${t}`:"—" }; } },
-    { key: "todayExp", label: "今日支出", icon: "chart", color: "#c93a30",
+    { key: "todayExp", label: "今日支出", icon: "chart", ringFill: "rgba(255, 225, 210, 0.55)",
       calc: d => { const mk=isoToday(); const t=(d.money||[]).filter(x=>x.date===mk&&x.type==="expense").reduce((s,x)=>s+ +x.amount,0);
         const B=100; return { value: Math.min(100, Math.round(t/B*100)), sub: t?`¥${t}`:"—" }; } },
-    { key: "goal", label: "目标进度", icon: "target", color: "#2069b0",
+    { key: "goal", label: "目标进度", icon: "target", ringFill: "rgba(200, 228, 245, 0.55)",
       calc: d => avgProgress(d.goal) },
   ],
 
@@ -710,10 +718,12 @@ document.querySelectorAll('#nav .n').forEach(n=>{
 });
 
 /* ---------- ring svg ---------- */
-function ringSVG(pct, color){
+/* 底环用极度透明的白色（0.2），填充环用半透明马卡龙色 + mix-blend-mode 实现拼图融合 */
+function ringSVG(pct, fillColor){
   const r=27, c=2*Math.PI*r, off=c*(1-Math.min(100,pct)/100);
-  return `<svg class="gauge" viewBox="0 0 60 60"><circle cx="30" cy="30" r="${r}" fill="none" stroke="var(--border)" stroke-width="5.5"/>
-    <circle cx="30" cy="30" r="${r}" fill="none" stroke="${color}" stroke-width="5.5" stroke-linecap="round"
+  const trackColor = "rgba(255,255,255,0.2)";
+  return `<svg class="gauge" viewBox="0 0 60 60"><circle cx="30" cy="30" r="${r}" fill="none" stroke="${trackColor}" stroke-width="5.5"/>
+    <circle class="ring-fill" cx="30" cy="30" r="${r}" fill="none" stroke="${fillColor}" stroke-width="5.5" stroke-linecap="round"
       stroke-dasharray="${c}" stroke-dashoffset="${off}"/></svg>`;
 }
 
@@ -728,7 +738,8 @@ function renderHome(){
   // overview rings
   const rings = CONFIG.overview.map(o=>{
     const r=o.calc(data);
-    return `<div class="ring" data-open="${o.key==='goal'?'goal':'money'}" style="color:${o.color}"><div class="dial">${ringSVG(r.value,o.color)}<span class="mid" style="color:${o.color}">${icon(o.icon,19)}</span></div>
+    // 圆环内部统一白色文字 + text-shadow，由 CSS 控制
+    return `<div class="ring" data-open="${o.key==='goal'?'goal':'money'}"><div class="dial">${ringSVG(r.value,o.ringFill)}<span class="mid">${icon(o.icon,19)}</span></div>
       <div class="pct">${r.value}%</div><div class="lbl">${o.label}</div><div class="sub">${r.sub}</div></div>`;
   }).join("");
 
