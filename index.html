@@ -530,44 +530,17 @@ const CONFIG = {
     "复盘一下，下周继续。",                 // 周日
   ],
 
-  // 底部导航对应的 3 个核心模块概览（三环）
-  // 每个 calc 返回 { value: 真实百分比(文本用,可>100), ringValue: 圆环进度(封顶0~100), sub: 下方小字 }
-  // ringFill: 半透明马卡龙色调，与背景图融合
+  // 底部导航对应的 3 个核心模块概览
+  // 圆环填充色：半透明 + 各自马卡龙色调，与背景图融合；底层用 mix-blend-mode: overlay 实现拼图感
   overview: [
     { key: "todayInc", label: "今日收入", icon: "wallet", ringFill: "rgba(200, 240, 215, 0.55)",
-      calc: d => {
-        const today = isoToday(); const mk = today.slice(0,7);
-        const all = d.money || [];
-        const safeSum = (type, dateMatch) => Math.abs(Number(all
-          .filter(x => x.type === type && dateMatch(x.date))
-          .reduce((s,x) => s + Number(x.amount || 0), 0)) || 0);
-        const t = safeSum("income", d => d === today);
-        const m = safeSum("income", d => (d||"").slice(0,7) === mk);
-        const { realPercent, uiProgress } = safePercentage(t, m);
-        return {
-          value: realPercent,
-          ringValue: uiProgress,
-          sub: t ? `¥${t}` : "—",
-        };
-      } },
+      calc: d => { const mk=isoToday(); const t=(d.money||[]).filter(x=>x.date===mk&&x.type==="income").reduce((s,x)=>s+ +x.amount,0);
+        return { value: t?100:0, sub: t?`¥${t}`:"—" }; } },
     { key: "todayExp", label: "今日支出", icon: "chart", ringFill: "rgba(255, 225, 210, 0.55)",
-      calc: d => {
-        const today = isoToday(); const mk = today.slice(0,7);
-        const all = d.money || [];
-        const safeSum = (type, dateMatch) => Math.abs(Number(all
-          .filter(x => x.type === type && dateMatch(x.date))
-          .reduce((s,x) => s + Number(x.amount || 0), 0)) || 0);
-        const t = safeSum("expense", d => d === today);
-        const m = safeSum("expense", d => (d||"").slice(0,7) === mk);
-        const { realPercent, uiProgress } = safePercentage(t, m);
-        return {
-          value: realPercent,
-          ringValue: uiProgress,
-          sub: t ? `¥${t}` : "—",
-        };
-      } },
+      calc: d => { const mk=isoToday(); const t=(d.money||[]).filter(x=>x.date===mk&&x.type==="expense").reduce((s,x)=>s+ +x.amount,0);
+        const B=100; return { value: Math.min(100, Math.round(t/B*100)), sub: t?`¥${t}`:"—" }; } },
     { key: "goal", label: "目标进度", icon: "target", ringFill: "rgba(200, 228, 245, 0.55)",
-      calc: d => { const r = avgProgress(d.goal); return { value: r.value, ringValue: r.value, sub: r.sub }; } },
+      calc: d => avgProgress(d.goal) },
   ],
 
   trend: {
@@ -687,74 +660,10 @@ function icon(name, size=22, sw=1.7){
    ENGINE — 一般无需改动
    ============================================================ */
 function isoToday(){ return new Date().toISOString().slice(0,10); }
-
-/* ============================================================
-   safePercentage —— 边界与异常安全的百分比计算（6 层防护）
-   输入可以是任意脏数据：null/undefined/""/"100元"/负数/Infinity 都不会崩
-   返回 { realPercent, uiProgress }
-     realPercent : 真实百分比（可能 > 100，给数字文本显示用）
-     uiProgress  : UI 进度值（永远 0~100，给圆环/进度条用）
-   ============================================================ */
-function safePercentage(todayAmount, monthAmount){
-  try {
-    // ② 空值与脏数据保护：强制转数字，NaN 降级为 0
-    const safeToday = Math.abs(Number(todayAmount) || 0);
-    const safeMonth = Math.abs(Number(monthAmount) || 0);
-
-    // ① 分母为零保护：本月为 0 直接返回 0，拦截除零
-    if (safeMonth === 0) {
-      return { realPercent: 0, uiProgress: 0 };
-    }
-
-    // ③ 负数异常保护：上面 Math.abs 已兜底，这里再 Math.max 双保险
-    // ⑤ 浮点数精度陷阱：先保留 4 位小数再四舍五入，抵消 0.1+0.2 类误差
-    const ratio = (safeToday / safeMonth) * 100;
-    const realPercent = Math.max(0, Math.round(Number(ratio.toFixed(4))));
-
-    // ④ 越界溢出保护：UI 进度封顶 100，但 realPercent 保留真实值
-    const uiProgress = Math.min(realPercent, 100);
-
-    return { realPercent, uiProgress };
-  } catch (err) {
-    // ⑥ 兜底策略：任何意想不到的异常都不让 UI 白屏
-    console.warn("[safePercentage] 计算异常，已兜底为 0：", err);
-    return { realPercent: 0, uiProgress: 0 };
-  }
-}
-
 function avgProgress(list){
-  try {
-    if(!list||!list.length) return { value: 0, sub: "0" };
-    const v = Math.round(list.reduce((s,x)=>{
-      const p = safePercentage(x.current, x.target);
-      return s + p.uiProgress;
-    }, 0) / list.length);
-    return { value: v, sub: `${list.length} 项` };
-  } catch (err) {
-    console.warn("[avgProgress] 计算异常，已兜底为 0：", err);
-    return { value: 0, sub: "0" };
-  }
-}
-
-/**
- * 安全计算「今日 / 本月」百分比
- *
- * 安全策略：
- *  1. 类型强制转换：空/null/undefined/非数字字符串 → 0（防字符串拼接）
- *  2. 除零保护：本月为 0（包括今日也为 0 或今日 > 0 的情况）→ 0%（防 Infinity / NaN）
- *  3. 四舍五入到整数
- *  4. 不做封顶：返回值如实反映比例（150% 就返回 150），由调用方决定圆环是否封顶
- *
- * @returns {{ value: number, ringValue: number }}
- *   value     — 文本显示用的真实百分比（整数，可能 >100）
- *   ringValue — 圆环填充用的封顶值（Math.min(value, 100)，保证 UI 不溢出）
- */
-function safePercent(todayAmount, monthAmount){
-  const t = Number(todayAmount) || 0;
-  const m = Number(monthAmount) || 0;
-  if(m === 0) return { value: 0, ringValue: 0 };
-  const raw = Math.round((t / m) * 100);
-  return { value: raw, ringValue: Math.min(raw, 100) };
+  if(!list||!list.length) return { value: 0, sub: "0" };
+  const v = Math.round(list.reduce((s,x)=>s+Math.min(100,(x.current/x.target)*100||0),0)/list.length);
+  return { value: v, sub: `${list.length} 项` };
 }
 const modOf = k => CONFIG.modules.find(m=>m.key===k);
 const $ = s => document.querySelector(s);
@@ -817,9 +726,7 @@ document.querySelectorAll('#nav .n').forEach(n=>{
 /* ---------- ring svg ---------- */
 /* 底环用极度透明的白色（0.2），填充环用半透明马卡龙色 + mix-blend-mode 实现拼图融合 */
 function ringSVG(pct, fillColor){
-  // 双保险：确保传入的 pct 是有限数、在 0~100 之间
-  const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
-  const r=27, c=2*Math.PI*r, off=c*(1-clamped/100);
+  const r=27, c=2*Math.PI*r, off=c*(1-Math.min(100,pct)/100);
   const trackColor = "rgba(255,255,255,0.2)";
   return `<svg class="gauge" viewBox="0 0 60 60"><circle cx="30" cy="30" r="${r}" fill="none" stroke="${trackColor}" stroke-width="5.5"/>
     <circle class="ring-fill" cx="30" cy="30" r="${r}" fill="none" stroke="${fillColor}" stroke-width="5.5" stroke-linecap="round"
@@ -836,11 +743,9 @@ function renderHome(){
 
   // overview rings
   const rings = CONFIG.overview.map(o=>{
-    const r = o.calc(data);
-    // 分离：圆环用 ringValue（封顶到 100 防 UI 溢出），文本用 value（如实百分比）
-    const ringVal = (typeof r.ringValue === "number") ? r.ringValue : Math.min(100, r.value);
+    const r=o.calc(data);
     // 圆环内部统一白色文字 + text-shadow，由 CSS 控制
-    return `<div class="ring" data-open="${o.key==='goal'?'goal':'money'}"><div class="dial">${ringSVG(ringVal,o.ringFill)}<span class="mid">${icon(o.icon,19)}</span></div>
+    return `<div class="ring" data-open="${o.key==='goal'?'goal':'money'}"><div class="dial">${ringSVG(r.value,o.ringFill)}<span class="mid">${icon(o.icon,19)}</span></div>
       <div class="pct">${r.value}%</div><div class="lbl">${o.label}</div><div class="sub">${r.sub}</div></div>`;
   }).join("");
 
